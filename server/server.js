@@ -1,45 +1,69 @@
 const net = require('net');
+const osc = require('osc');
 
-const HOST = 'esp8266.local'; // nDNS (or ip) ESP8266 of esp
-const PORT = 80;
+const ESP_HOST = 'esp8266.local';
+const ESP_PORT = 80;
+const ESP_SEND_INTERVAL_MS = 1000 / 4; // 60 раз в секунду
 
-//create TCP client
+const OSC_HOST = '0.0.0.0';
+const OSC_PORT = 9001;
+
+const numbers = new Array(8).fill(0);
+
 const client = new net.Socket();
 
-const getVoltage = ((num) => ((num / 255) * 3.20).toFixed(2));
-
-client.connect(PORT, HOST, () => {
-  console.log(`Connected to ${HOST}:${PORT}`);
-  //disable cache of packages
-  client.setNoDelay(true);
-
-  setInterval(() => {
-    const millis = Date.now();
-    // convert millis to 16-number
-    const data = Buffer.alloc(8); 
-    data.writeBigUInt64LE(BigInt(millis));  // write in buffer
-
-    // send data type of <12 34 56 78 90 AB CD EF>
-    client.write(data);
-    console.log('Data sent:', data);
-    console.log('Voltage: ', getVoltage(data[0]));
-}, 500);
-  console.log('sended!');
-
-
-  setTimeout(() => {
-
-    client.end();
-    console.log('connection closed');
-  }, 100000);
+const oscServer = new osc.UDPPort({
+    localAddress: OSC_HOST,
+    localPort: OSC_PORT,
 });
 
-// error handler
+client.connect(ESP_PORT, ESP_HOST, () => {
+    console.log(`TCP-server connected to ${ESP_HOST}:${ESP_PORT}`);
+    client.setNoDelay(true);
+});
+
 client.on('error', (err) => {
-  console.error('Error:', err.message);
+    console.error('TCP error:', err.message);
 });
 
-// close handler
-client.on('close', () => {
-  console.log('Connection closed');
+oscServer.on("message", (oscMessage) => {
+
+  const regex = /^.*\/sensor(\d+)$/;
+  if(!regex.test(oscMessage.address)) {
+    return;
+  }
+
+  if(oscMessage.args.length !== 1) {
+    return;
+  }
+
+  const index = oscMessage.address.match(regex)[1]; // sensor index
+
+  if (index > 7 || index < 0) {
+    return;
+  }
+
+  const value = oscMessage.args[0] * 255 | 0; // 0 - 255
+
+  numbers[index] = value;
+  console.log(oscMessage);
+  console.log(numbers);
 });
+
+
+oscServer.on("error", (err) => {
+  console.error("Error OSC server:", err.message);
+});
+
+oscServer.open();
+
+setInterval(() => {
+    if (client.writable) {
+      console.log('try to send', Buffer.from(numbers));
+        client.write(Buffer.from(numbers), (err) => {
+            if (err) {
+                console.error(`ERROR send numbers ${numbers} -`, err.message);
+            }
+        });
+    }
+}, ESP_SEND_INTERVAL_MS);
