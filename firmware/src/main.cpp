@@ -35,8 +35,8 @@ void setup() {
   Serial.printf("IP address: %s\n", WiFi.localIP().toString().c_str());
 
   // start MDNS
-  if (MDNS.begin("esp8266")) {
-    Serial.println("MDNS responder started on esp8266.local");
+  if (MDNS.begin("taptic-haptic-esp8266")) {
+    Serial.println("MDNS responder started on taptic-haptic-esp8266.local");
   }
 
   // start server

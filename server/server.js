@@ -1,7 +1,7 @@
 const net = require('net');
 const osc = require('osc');
 
-const ESP_HOST = 'esp8266.local';
+const ESP_HOST = 'taptic-haptic-esp8266.local';
 const ESP_PORT = 80;
 const ESP_SEND_INTERVAL_MS = 1000 / 4; // 60 раз в секунду
 
@@ -63,7 +63,8 @@ setInterval(() => {
         client.write(Buffer.from(numbers), (err) => {
             if (err) {
                 console.error(`ERROR send numbers ${numbers} -`, err.message);
-            }
+            } 
+            console.log('success sended');
         });
     }
 }, ESP_SEND_INTERVAL_MS);
